@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OCR Teks dari Gambar - Screenshot Extractor</title>
+    <script src="https://unpkg.com/tesseract.js@v4.1.1/dist/tesseract.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            transition: all 0.3s ease;
+        }
+
+        .dark-mode {
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            color: #e0e0e0;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+            backdrop-filter: blur(10px);
+            transition: all 0.3s ease;
+        }
+
+        .dark-mode .container {
+            background: rgba(30, 30, 40, 0.95);
+            color: #e0e0e0;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            padding: 30px;
+            text-align: center;
+            color: white;
+        }
+
+        .dark-mode .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+
+        h1 {
+            font-size: 2.2em;
+            margin-bottom: 10px;
+            font-weight: 700;
+        }
+
+        .subtitle {
+            opacity: 0.9;
+            font-size: 1.1em;
+        }
+
+        .upload-area {
+            padding: 40px 30px;
+            text-align: center;
+            border: 3px dashed #4facfe;
+            border-radius: 15px;
+            margin: 30px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            background: rgba(79, 172, 254, 0.1);
+        }
+
+        .upload-area:hover, .upload-area.dragover {
+            border-color: #00f2fe;
+            background: rgba(0, 242, 254, 0.15);
+            transform: scale(1.02);
+        }
+
+        .upload-icon {
+            font-size: 4em;
+            margin-bottom: 20px;
+            display: block;
+        }
+
+        .upload-text {
+            font-size: 1.3em;
+            margin-bottom: 10px;
+            font-weight: 500;
+        }
+
+        .upload-subtext {
+            color: #666;
+            margin-bottom: 20px;
+        }
+
+        .dark-mode .upload-subtext {
+            color: #aaa;
+        }
+
+        #fileInput {
+            display: none;
+        }
+
+        .controls {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin: 20px 0;
+        }
+
+        button {
+            padding: 12px 30px;
+            border: none;
+            border-radius: 50px;
+            font-size: 1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(79, 172, 254, 0.4);
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+            color: white;
+        }
+
+        .btn-success:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(67, 233, 123, 0.4);
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #5a6268;
+            transform: translateY(-2px);
+        }
+
+        .btn-danger {
+            background: #ff6b6b;
+            color: white;
+        }
+
+        .preview-container {
+            display: none;
+            margin: 30px;
+            gap: 30px;
+            flex-wrap: wrap;
+        }
+
+        .preview-image {
+            flex: 1;
+            min-width: 300px;
+            max-height: 400px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            object-fit: contain;
+        }
+
+        .result-container {
+            flex: 1;
+            min-width: 300px;
+        }
+
+        .result-text {
+            width: 100%;
+            min-height: 200px;
+            padding: 20px;
+            border: 2px solid #e0e0e0;
+            border-radius: 15px;
+            font-size: 1.1em;
+            line-height: 1.6;
+            resize: vertical;
+            font-family: 'Courier New', monospace;
+            background: #f8f9fa;
+            transition: all 0.3s ease;
+        }
+
+        .dark-mode .result-text {
+            border-color: #444;
+            background: #2a2a2a;
+            color: #e0e0e0;
+        }
+
+        .result-text:focus {
+            outline: none;
+            border-color: #4facfe;
+            box-shadow: 0 0 0 3px rgba(79, 172, 254, 0.1);
+        }
+
+        .progress {
+            display: none;
+            margin: 20px 0;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #e0e0e0;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #4facfe, #00f2fe);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        .status {
+            text-align: center;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 20px 0;
+            font-weight: 500;
+        }
+
+        .status.success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .status.error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .status.loading { background: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
+
+        .mode-toggle {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(255,255,255,0.2);
+            border: none;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            cursor: pointer;
+            font-size: 1.5em;
+            backdrop-filter: blur(10px);
+        }
+
+        @media (max-width: 768px) {
+            .container { margin: 10px; }
+            .header { padding: 20px; }
+            h1 { font-size: 1.8em; }
+            .preview-container { flex-direction: column; }
+            .controls { flex-direction: column; align-items: center; }
+        }
+
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+    <button class="mode-toggle" onclick="toggleDarkMode()" title="Toggle Dark Mode">☀️</button>
+    
+    <div class="container">
+        <div class="header">
+            <h1>🖼️ OCR Teks Extractor</h1>
+            <p class="subtitle">Upload screenshot atau gambar, ekstrak teks otomatis dalam detik!</p>
+        </div>
+
+        <div class="upload-area" onclick="document.getElementById('fileInput').click()">
+            <div class="upload-icon">📁</div>
+            <div class="upload-text">Klik atau drag & drop gambar di sini</div>
+            <div class="upload-subtext">JPG, PNG, WebP, BMP (max 10MB)</div>
+        </div>
+        
+        <input type="file" id="fileInput" accept="image/*" />
+
+        <div class="controls">
+            <button class="btn-primary" onclick="processImage()" id="processBtn" disabled>🚀 Ekstrak Teks</button>
+            <button class="btn-success" onclick="copyText()" id="copyBtn" disabled>📋 Copy Teks</button>
+            <button class="btn-danger" onclick="resetAll()" id="resetBtn">🔄 Reset</button>
+        </div>
+
+        <div class="progress" id="progress">
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill"></div>
+            </div>
+            <div style="margin-top: 10px; font-weight: 500;" id="progressText">Memproses...</div>
+        </div>
+
+        <div class="status hidden" id="status"></div>
+
+        <div class="preview-container" id="previewContainer">
+            <img id="previewImage" class="preview-image" alt="Preview gambar" />
+            <div class="result-container">
+                <textarea class="result-text" id="resultText" placeholder="Teks hasil OCR akan muncul di sini..."></textarea>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentImage = null;
+        const worker = null;
+
+        // Drag & Drop
+        const uploadArea = document.querySelector('.upload-area');
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            uploadArea.addEventListener(eventName, preventDefaults, false);
+        });
+
+        function preventDefaults(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        ['dragenter', 'dragover'].forEach(eventName => {
+            uploadArea.addEventListener(eventName, () => uploadArea.classList.add('dragover'), false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            uploadArea.addEventListener(eventName, () => uploadArea.classList.remove('dragover'), false);
+        });
+
+        uploadArea.addEventListener('drop', handleDrop, false);
+
+        function handleDrop(e) {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            handleFiles(files);
+        }
+
+        document.getElementById('fileInput').addEventListener('change', (e) => {
+            handleFiles(e.target.files);
+        });
+
+        function handleFiles(files) {
+            if (files.length > 0) {
+                const file = files[0];
+                if (file.type.startsWith('image/') && file.size < 10 * 1024 * 1024) {
+                    currentImage = file;
+                    displayPreview(file);
+                    updateButtons(true);
+                } else {
+                    showStatus('❌ File harus gambar (JPG, PNG, dll.) max 10MB', 'error');
+                }
+            }
+        }
+
+        function displayPreview(file) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                document.getElementById('previewImage').src = e.target.result;
+                document.getElementById('previewContainer').style.display = 'flex';
+            };
+            reader.readAsDataURL(file);
+        }
+
+        async function processImage() {
+            if (!currentImage) return;
+
+            const progress = document.getElementById('progress');
+            const progressFill = document.getElementById('progressFill');
+            const progressText = document.getElementById('progressText');
+            const processBtn = document.getElementById('processBtn');
+
+            progress.style.display = 'block';
+            processBtn.disabled = true;
+            processBtn.textContent = '⏳ Memproses...';
+
+            try {
+                progressText.textContent = 'Memuat model OCR...';
+                progressFill.style.width = '20%';
+
+                const { data: { text } } = await Tesseract.recognize(
+                    currentImage,
+                    'ind+eng', // Bahasa Indonesia + English
+                    {
+                        logger: m => {
+                            if (m.status === 'recognizing text') {
+                                progressFill.style.width = `${Math.min(95, m.progress * 100)}%`;
+                                progressText.textContent = `Mengenali teks... ${Math.round(m.progress * 100)}%`;
+                            }
+                        }
+                    }
+                );
+
+                document.getElementById('resultText').value = text.trim();
+                showStatus(`✅ Berhasil ekstrak ${text.trim().split('\n').length} baris teks!`, 'success');
+                updateButtons(true);
+
+            } catch (error) {
+                console.error(error);
+                showStatus('❌ Gagal memproses gambar. Coba gambar yang lebih jelas.', 'error');
+            } finally {
+                progress.style.display = 'none';
+                processBtn.disabled = false;
+                processBtn.textContent = '🚀 Ekstrak Teks';
+                progressFill.style.width = '0%';
+            }
+        }
+
+        function copyText() {
+            const text = document.getElementById('resultText');
+            text.select();
+            document.execCommand('copy');
+            
+            // Feedback
+            const button = document.getElementById('copyBtn');
+            const originalText = button.textContent;
+            button.textContent = '✅ Teks dicopy!';
+            button.style.background = '#43e97b';
+            
+            setTimeout(() => {
+                button.textContent = originalText;
+                button.style.background = '';
+            }, 2000);
+        }
+
+        function updateButtons(hasImage) {
+            document.getElementById('processBtn').disabled = !hasImage;
+            document.getElementById('copyBtn').disabled = !hasImage;
+            document.getElementById('resetBtn').disabled = !hasImage;
+        }
+
+        function resetAll() {
+            currentImage = null;
+            document.getElementById('previewContainer').style.display = 'none';
+            document.getElementById('resultText').value = '';
+            document.getElementById('previewImage').src = '';
+            document.getElementById('fileInput').value = '';
+            updateButtons(false);
+            hideStatus();
+            document.querySelector('.upload-area').classList.remove('dragover');
+        }
+
+        function showStatus(message, type) {
+            const status = document.getElementById('status');
+            status.textContent = message;
+            status.className = `status ${type}`;
+            status.classList.remove('hidden');
+        }
+
+        function hideStatus() {
+            document.getElementById('status').classList.add('hidden');
+        }
+
+        function toggleDarkMode() {
+            document.body.classList.toggle('dark-mode');
+            const sun = document.querySelector('.mode-toggle');
+            sun.textContent = document.body.classList.contains('dark-mode') ? '☀️' : '🌙';
+            sun.title = document.body.classList.contains('dark-mode') ? 'Light Mode' : 'Dark Mode';
+        }
+
+        // Keyboard shortcuts
+        document.addEventListener('keydown', (e) => {
+            if (e.ctrlKey || e.metaKey) {
+                switch(e.key) {
+                    case 'Enter':
+                        if (!document.getElementById('processBtn').disabled) processImage();
+                        break;
+                    case 'c':
+                    case 'C':
+                        if (!document.getElementById('copyBtn').disabled) copyText();
+                        break;
+                }
+            }
+        });
+    </script>
+</body>
+</html>
